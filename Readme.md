@@ -1,10 +1,13 @@
-# migrate
+# pragonauts-migrate
 
-  Abstract migration framework for node
+  Migration framework for **Mongoose** which solves:
+
+  - storing migrations in DB
+  - supports locking to ensure only single migration is running
 
 ## Installation
 
-    $ npm install migrate
+    $ npm i -S pragonauts-migrate
 
 ## Usage
 
@@ -14,7 +17,7 @@ Usage: migrate [options] [command]
 Options:
 
    -c, --chdir <path>      change the working directory
-   --state-file <path>     set path to state file (migrations/.migrate)
+   --d, --db <url>         database connection string
    --template-file <path>  set path to template file to use for new migrations
    --date-format <format>  set a date format to use for new migration filenames
 
@@ -30,12 +33,12 @@ Commands:
 
 ```javascript
 var migrate = require('migrate');
-var set = migrate.load('migration/.migrate', 'migration');
+var set = migrate.load('migration', function (err, set) {
+  set.up(function (err) {
+    if (err) throw err;
 
-set.up(function (err) {
-  if (err) throw err;
-
-  console.log('Migration completed');
+    console.log('Migration completed');
+  });
 });
 ```
 
