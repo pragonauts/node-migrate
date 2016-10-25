@@ -7,7 +7,8 @@
 var migrate = require('../')
   , join = require('path').join
   , fs = require('fs')
-  , dateFormat = require('dateformat');
+  , dateFormat = require('dateformat')
+  , mongoose = require('mongoose');
 
 /**
  * Arguments.
@@ -38,7 +39,7 @@ var usage = [
   , '  Options:'
   , ''
   , '     -c, --chdir <path>      change the working directory'
-  , '     --state-file <path>     set path to state file (migrations/.migrate)'
+  , '     -d, --db <uri>          mongodb connection string'
   , '     --template-file <path>  set path to template file to use for new migrations'
   , '     --date-format <format>  set a date format to use for new migration filenames'
   , '  Commands:'
@@ -96,8 +97,9 @@ while (args.length) {
     case '--chdir':
       process.chdir(cwd = required());
       break;
-    case '--state-file':
-      options.stateFile = required();
+    case '-d':
+    case '--db':
+      options.db = required();
       break;
     case '--template-file':
       template = fs.readFileSync(required());
@@ -184,7 +186,6 @@ function create(name) {
   log('create', join(process.cwd(), path));
   fs.writeFileSync(path, template);
 }
-
 /**
  * Perform a migration in the given `direction`.
  *
@@ -192,25 +193,31 @@ function create(name) {
  */
 
 function performMigration(direction, migrationName) {
-  var state = options.stateFile || join('migrations', '.migrate');
-  var set = migrate.load(state, 'migrations');
-
-  set.on('migration', function(migration, direction){
-    log(direction, migration.title);
-  });
-
-  var migrationPath = migrationName
-    ? join('migrations', migrationName)
-    : migrationName;
-
-  set[direction](migrationName, function (err) {
+  mongoose.Promise = Promise;
+  mongoose.connect(options.db || process.env.MONGODB_URL || 'mongodb://localhost/test');
+  migrate.load('migrations', function (err, set) {
     if (err) {
       log('error', err);
       process.exit(1);
     }
 
-    log('migration', 'complete');
-    process.exit(0);
+    set.on('migration', function(migration, direction){
+      log(direction, migration.title);
+    });
+
+    var migrationPath = migrationName
+      ? join('migrations', migrationName)
+      : migrationName;
+
+    set[direction](migrationName, function (err) {
+      if (err) {
+        log('error', err);
+        process.exit(1);
+      }
+
+      log('migration', 'complete');
+      process.exit(0);
+    });
   });
 }
 
